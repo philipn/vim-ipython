@@ -45,11 +45,46 @@ from IPython.config.loader import KeyValueConfigLoader
 from IPython.zmq.kernelapp import kernel_aliases
 
 
+def guess_km():
+    global km
+
+    def _guess_args(cmdline):
+        shell, iopub, stdin, hb = None, None, None, None
+        for item in cmdline:
+            if item.startswith('--shell'):
+                shell = item[len('--shell')+1:]
+            elif item.startswith('--iopub'):
+                iopub = item[len('--iopub')+1:]
+            elif item.startswith('--stdin'):
+                stdin = item[len('--stdin')+1:]
+            elif item.startswith('--hb'):
+                hb = item[len('--hb')+1:]
+        return (shell, iopub, stdin, hb)
+
+    try:
+        import psutil
+
+        for p in psutil.process_iter():
+            if p.name == 'python':
+                (shell, iopub, stdin, hb) = _guess_args(p.cmdline)
+            if shell and iopub and stdin and hb:
+                km = BlockingKernelManager(
+                    shell_address=(ip, shell),
+                    sub_address=(ip, iopub),
+                    stdin_address=(ip, stdin),
+                    hb_address=(ip, hb)
+                )
+    except:
+        pass
+
+    return None
+
+
 ip = '127.0.0.1'
 try:
     km
 except NameError:
-    km = None
+    km = guess_km()
 
 def km_from_string(s):
     """create kernel manager from IPKernelApp string
